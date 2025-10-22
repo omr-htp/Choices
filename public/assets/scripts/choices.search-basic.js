@@ -50,6 +50,121 @@
       };
       return __assign.apply(this, arguments);
     };
+    function __awaiter(thisArg, _arguments, P, generator) {
+      function adopt(value) {
+        return value instanceof P ? value : new P(function (resolve) {
+          resolve(value);
+        });
+      }
+      return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) {
+          try {
+            step(generator.next(value));
+          } catch (e) {
+            reject(e);
+          }
+        }
+        function rejected(value) {
+          try {
+            step(generator["throw"](value));
+          } catch (e) {
+            reject(e);
+          }
+        }
+        function step(result) {
+          result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+        }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+      });
+    }
+    function __generator(thisArg, body) {
+      var _ = {
+          label: 0,
+          sent: function () {
+            if (t[0] & 1) throw t[1];
+            return t[1];
+          },
+          trys: [],
+          ops: []
+        },
+        f,
+        y,
+        t,
+        g;
+      return g = {
+        next: verb(0),
+        "throw": verb(1),
+        "return": verb(2)
+      }, typeof Symbol === "function" && (g[Symbol.iterator] = function () {
+        return this;
+      }), g;
+      function verb(n) {
+        return function (v) {
+          return step([n, v]);
+        };
+      }
+      function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+          if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+          if (y = 0, t) op = [op[0] & 2, t.value];
+          switch (op[0]) {
+            case 0:
+            case 1:
+              t = op;
+              break;
+            case 4:
+              _.label++;
+              return {
+                value: op[1],
+                done: false
+              };
+            case 5:
+              _.label++;
+              y = op[1];
+              op = [0];
+              continue;
+            case 7:
+              op = _.ops.pop();
+              _.trys.pop();
+              continue;
+            default:
+              if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) {
+                _ = 0;
+                continue;
+              }
+              if (op[0] === 3 && (!t || op[1] > t[0] && op[1] < t[3])) {
+                _.label = op[1];
+                break;
+              }
+              if (op[0] === 6 && _.label < t[1]) {
+                _.label = t[1];
+                t = op;
+                break;
+              }
+              if (t && _.label < t[2]) {
+                _.label = t[2];
+                _.ops.push(op);
+                break;
+              }
+              if (t[2]) _.ops.pop();
+              _.trys.pop();
+              continue;
+          }
+          op = body.call(thisArg, _);
+        } catch (e) {
+          op = [6, e];
+          y = 0;
+        } finally {
+          f = t = 0;
+        }
+        if (op[0] & 5) throw op[1];
+        return {
+          value: op[0] ? op[1] : void 0,
+          done: true
+        };
+      }
+    }
     function __spreadArray(to, from, pack) {
       if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
         if (ar || !(i in from)) {
@@ -2849,6 +2964,255 @@
         },
     };
 
+    /**
+     * RemoteLoader handles remote data fetching, caching, and pagination
+     * for the Choices library with infinite scroll support.
+     */
+    var RemoteLoader = /** @class */ (function () {
+        function RemoteLoader(options) {
+            this.cache = new Map();
+            this.currentQuery = '';
+            this.totalPages = 1;
+            this.abortController = null;
+            this.debounceTimer = null;
+            this.isLoading = false;
+            this.options = options;
+            this.currentPage = options.initialPage;
+        }
+        /**
+         * Fetch data for a specific query and page with debouncing
+         */
+        RemoteLoader.prototype.fetch = function (query, page, immediate) {
+            var _this = this;
+            if (immediate === void 0) { immediate = false; }
+            return new Promise(function (resolve, reject) {
+                // Clear existing debounce timer
+                if (_this.debounceTimer) {
+                    clearTimeout(_this.debounceTimer);
+                    _this.debounceTimer = null;
+                }
+                var doFetch = function () { return __awaiter(_this, void 0, void 0, function () {
+                    var cacheKey, cached, response, mapped, error_1;
+                    return __generator(this, function (_a) {
+                        switch (_a.label) {
+                            case 0:
+                                cacheKey = this.getCacheKey(query, page);
+                                cached = this.cache.get(cacheKey);
+                                if (cached) {
+                                    resolve({
+                                        items: cached.items,
+                                        page: cached.page,
+                                        totalPages: this.totalPages,
+                                    });
+                                    return [2 /*return*/];
+                                }
+                                // Abort previous request if abortable
+                                if (this.options.abortable && this.abortController) {
+                                    this.abortController.abort();
+                                }
+                                // Create new abort controller
+                                if (this.options.abortable) {
+                                    this.abortController = new AbortController();
+                                }
+                                this.isLoading = true;
+                                _a.label = 1;
+                            case 1:
+                                _a.trys.push([1, 4, , 5]);
+                                return [4 /*yield*/, this.performFetch(query, page)];
+                            case 2:
+                                response = _a.sent();
+                                return [4 /*yield*/, this.options.mapResponse(response)];
+                            case 3:
+                                mapped = _a.sent();
+                                this.isLoading = false;
+                                // Update state
+                                this.currentQuery = query;
+                                this.currentPage = page;
+                                this.totalPages = mapped.totalPages;
+                                // Cache the result
+                                this.cacheResult(query, page, mapped.items);
+                                resolve(mapped);
+                                return [3 /*break*/, 5];
+                            case 4:
+                                error_1 = _a.sent();
+                                this.isLoading = false;
+                                // Don't reject on abort errors
+                                if (error_1 instanceof Error && error_1.name === 'AbortError') {
+                                    return [2 /*return*/];
+                                }
+                                if (this.options.onError && error_1 instanceof Error) {
+                                    this.options.onError(error_1);
+                                }
+                                reject(error_1);
+                                return [3 /*break*/, 5];
+                            case 5: return [2 /*return*/];
+                        }
+                    });
+                }); };
+                // Apply debounce
+                if (immediate || _this.options.debounce === 0) {
+                    doFetch().catch(function () {
+                        // Errors are already handled in doFetch
+                    });
+                }
+                else {
+                    _this.debounceTimer = setTimeout(function () {
+                        doFetch().catch(function () {
+                            // Errors are already handled in doFetch
+                        });
+                    }, _this.options.debounce);
+                }
+            });
+        };
+        /**
+         * Perform the actual fetch operation
+         */
+        RemoteLoader.prototype.performFetch = function (query, page) {
+            return __awaiter(this, void 0, void 0, function () {
+                var _a, url, pageSize, result, fetchUrl, fetchOptions, response;
+                return __generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            _a = this.options, url = _a.url, pageSize = _a.pageSize;
+                            if (!(typeof url === 'function')) return [3 /*break*/, 2];
+                            return [4 /*yield*/, url(query, page, pageSize)];
+                        case 1:
+                            result = _b.sent();
+                            // If result is a Response object, parse as JSON
+                            if (result instanceof Response) {
+                                return [2 /*return*/, result.json()];
+                            }
+                            return [2 /*return*/, result];
+                        case 2:
+                            fetchUrl = url
+                                .replace('{query}', encodeURIComponent(query))
+                                .replace('{page}', String(page))
+                                .replace('{pageSize}', String(pageSize));
+                            fetchOptions = {};
+                            if (this.abortController) {
+                                fetchOptions.signal = this.abortController.signal;
+                            }
+                            return [4 /*yield*/, fetch(fetchUrl, fetchOptions)];
+                        case 3:
+                            response = _b.sent();
+                            if (!response.ok) {
+                                throw new Error("HTTP error! status: ".concat(response.status));
+                            }
+                            return [2 /*return*/, response.json()];
+                    }
+                });
+            });
+        };
+        /**
+         * Cache a page result
+         */
+        RemoteLoader.prototype.cacheResult = function (query, page, items) {
+            var cacheKey = this.getCacheKey(query, page);
+            this.cache.set(cacheKey, {
+                query: query,
+                page: page,
+                items: items,
+                timestamp: Date.now(),
+            });
+            // Evict old entries if cache size exceeds limit
+            if (this.cache.size > this.options.cachePages) {
+                this.evictOldestCacheEntry();
+            }
+        };
+        /**
+         * Evict the oldest cache entry based on timestamp
+         */
+        RemoteLoader.prototype.evictOldestCacheEntry = function () {
+            var oldestKey = null;
+            var oldestTime = Infinity;
+            this.cache.forEach(function (value, key) {
+                if (value.timestamp < oldestTime) {
+                    oldestTime = value.timestamp;
+                    oldestKey = key;
+                }
+            });
+            if (oldestKey) {
+                this.cache.delete(oldestKey);
+            }
+        };
+        /**
+         * Generate cache key from query and page
+         */
+        // eslint-disable-next-line class-methods-use-this
+        RemoteLoader.prototype.getCacheKey = function (query, page) {
+            return "".concat(query, "||").concat(page);
+        };
+        /**
+         * Check if a page is cached
+         */
+        RemoteLoader.prototype.hasCachedPage = function (query, page) {
+            return this.cache.has(this.getCacheKey(query, page));
+        };
+        /**
+         * Get current state
+         */
+        RemoteLoader.prototype.getState = function () {
+            var _this = this;
+            var cachedPages = [];
+            this.cache.forEach(function (value) {
+                if (value.query === _this.currentQuery) {
+                    cachedPages.push(value.page);
+                }
+            });
+            return {
+                query: this.currentQuery,
+                currentPage: this.currentPage,
+                totalPages: this.totalPages,
+                cachedPages: cachedPages.sort(function (a, b) { return a - b; }),
+            };
+        };
+        /**
+         * Clear all cached data
+         */
+        RemoteLoader.prototype.clearCache = function () {
+            this.cache.clear();
+        };
+        /**
+         * Check if loader is currently loading
+         */
+        RemoteLoader.prototype.getIsLoading = function () {
+            return this.isLoading;
+        };
+        /**
+         * Get the current query
+         */
+        RemoteLoader.prototype.getCurrentQuery = function () {
+            return this.currentQuery;
+        };
+        /**
+         * Get current page
+         */
+        RemoteLoader.prototype.getCurrentPage = function () {
+            return this.currentPage;
+        };
+        /**
+         * Get total pages
+         */
+        RemoteLoader.prototype.getTotalPages = function () {
+            return this.totalPages;
+        };
+        /**
+         * Cleanup resources
+         */
+        RemoteLoader.prototype.destroy = function () {
+            if (this.debounceTimer) {
+                clearTimeout(this.debounceTimer);
+                this.debounceTimer = null;
+            }
+            if (this.abortController) {
+                this.abortController.abort();
+                this.abortController = null;
+            }
+            this.cache.clear();
+        };
+        return RemoteLoader;
+    }());
+
     /** @see {@link http://browserhacks.com/#hack-acea075d0ac6954f275a70023906050c} */
     var IS_IE11 = '-ms-scroll-limit' in document.documentElement.style &&
         '-ms-ime-align' in document.documentElement.style;
@@ -2873,6 +3237,8 @@
             this._hasNonChoicePlaceholder = false;
             this._lastAddedChoiceId = 0;
             this._lastAddedGroupId = 0;
+            this._remoteCurrentPage = 1;
+            this._remoteTotalPages = 1;
             var defaults = Choices.defaults;
             this.config = __assign(__assign(__assign({}, defaults.allOptions), defaults.options), userConfig);
             ObjectsInConfig.forEach(function (key) {
@@ -3032,6 +3398,10 @@
             this._createTemplates();
             this._createElements();
             this._createStructure();
+            // Initialize remote loader if remote option is enabled
+            if (this.config.remote && this._isSelectElement) {
+                this._remoteLoader = new RemoteLoader(this.config.remote);
+            }
             if ((this._isTextElement && !this.config.addItems) ||
                 this.passedElement.element.hasAttribute('disabled') ||
                 !!this.passedElement.element.closest('fieldset:disabled')) {
@@ -3061,6 +3431,12 @@
             this._store._listeners = []; // prevents select/input value being wiped
             this.clearStore(false);
             this._stopSearch();
+            // Cleanup remote loader
+            if (this._remoteLoader) {
+                this._remoteLoader.destroy();
+                this._remoteLoader = undefined;
+            }
+            this._destroySentinels();
             this._templates = Choices.defaults.templates;
             this.initialised = false;
             this.initialisedOK = undefined;
@@ -3189,6 +3565,14 @@
                 if (!preventInputFocus) {
                     _this.input.focus();
                 }
+                // Create sentinels if remote mode is enabled
+                if (_this._remoteLoader && _this.config.remote) {
+                    _this._createSentinels();
+                    // Auto-load initial data if enabled
+                    if (_this.config.remote.autoLoadInitial) {
+                        _this._loadRemotePage('', _this.config.remote.initialPage, true);
+                    }
+                }
                 _this.passedElement.triggerEvent(EventType.showDropdown);
             });
             return this;
@@ -3204,6 +3588,10 @@
                 if (!preventInputBlur && _this._canSearch) {
                     _this.input.removeActiveDescendant();
                     _this.input.blur();
+                }
+                // Destroy sentinels when dropdown closes
+                if (_this._remoteLoader) {
+                    _this._destroySentinels();
                 }
                 _this.passedElement.triggerEvent(EventType.hideDropdown);
             });
@@ -3515,6 +3903,66 @@
             this.input.clear(shouldSetInputWidth);
             this._stopSearch();
             return this;
+        };
+        /* ========================================
+         * Remote data loader methods
+         * ======================================== */
+        /**
+         * Clear the remote data cache
+         */
+        Choices.prototype.clearRemoteCache = function () {
+            this._warnChoicesInitFailed('clearRemoteCache');
+            if (!this._remoteLoader) {
+                if (!this.config.silent) {
+                    console.warn('clearRemoteCache called but remote is not enabled');
+                }
+                return this;
+            }
+            this._remoteLoader.clearCache();
+            return this;
+        };
+        /**
+         * Refresh remote data for the current query
+         */
+        Choices.prototype.refreshRemote = function () {
+            this._warnChoicesInitFailed('refreshRemote');
+            if (!this._remoteLoader || !this.config.remote) {
+                if (!this.config.silent) {
+                    console.warn('refreshRemote called but remote is not enabled');
+                }
+                return this;
+            }
+            var query = this._remoteLoader.getCurrentQuery();
+            this._loadRemotePage(query, this.config.remote.initialPage, true);
+            return this;
+        };
+        /**
+         * Load a specific page from the remote API
+         */
+        Choices.prototype.gotoRemotePage = function (pageNumber) {
+            this._warnChoicesInitFailed('gotoRemotePage');
+            if (!this._remoteLoader || !this.config.remote) {
+                if (!this.config.silent) {
+                    console.warn('gotoRemotePage called but remote is not enabled');
+                }
+                return this;
+            }
+            var query = this._remoteLoader.getCurrentQuery();
+            this._loadRemotePage(query, pageNumber, true);
+            return this;
+        };
+        /**
+         * Get the current state of the remote data loader
+         */
+        Choices.prototype.getRemoteState = function () {
+            this._warnChoicesInitFailed('getRemoteState');
+            if (!this._remoteLoader) {
+                if (!this.config.silent) {
+                    console.warn('getRemoteState called but remote is not enabled');
+                }
+                return null;
+            }
+            return this._remoteLoader.getState();
         };
         Choices.prototype._validateConfig = function () {
             var config = this.config;
@@ -3921,18 +4369,39 @@
             }
         };
         Choices.prototype._handleSearch = function (value) {
+            var _this = this;
             if (!this.input.isFocussed) {
                 return;
             }
             // Check that we have a value to search and the input was an alphanumeric character
             if (value !== null && typeof value !== 'undefined' && value.length >= this.config.searchFloor) {
-                var resultCount = this.config.searchChoices ? this._searchChoices(value) : 0;
-                if (resultCount !== null) {
+                // If remote mode is enabled, trigger remote search instead of local search
+                if (this._remoteLoader && this.config.remote) {
+                    // Clear existing choices for new search
+                    this._store.withTxn(function () {
+                        _this._store.choices.forEach(function (choice) {
+                            if (!choice.selected) {
+                                _this._store.dispatch(removeChoice(choice));
+                            }
+                        });
+                    });
+                    // Load initial page for the new search query
+                    this._loadRemotePage(value, this.config.remote.initialPage, false);
                     // Trigger search event
                     this.passedElement.triggerEvent(EventType.search, {
                         value: value,
-                        resultCount: resultCount,
+                        resultCount: 0,
                     });
+                }
+                else {
+                    var resultCount = this.config.searchChoices ? this._searchChoices(value) : 0;
+                    if (resultCount !== null) {
+                        // Trigger search event
+                        this.passedElement.triggerEvent(EventType.search, {
+                            value: value,
+                            resultCount: resultCount,
+                        });
+                    }
                 }
             }
             else if (this._store.choices.some(function (option) { return !option.active; })) {
@@ -4776,6 +5245,114 @@
             else if (!this.initialisedOK) {
                 throw new TypeError("".concat(caller, " called for an element which has multiple instances of Choices initialised on it"));
             }
+        };
+        /**
+         * Create sentinel elements for infinite scroll
+         */
+        Choices.prototype._createSentinels = function () {
+            var _this = this;
+            if (!this._remoteLoader || !this.config.remote || this._topSentinel || this._bottomSentinel) {
+                return;
+            }
+            var threshold = this.config.remote.threshold;
+            // Create top sentinel (for prepending previous pages)
+            this._topSentinel = document.createElement('div');
+            this._topSentinel.className = 'choices__sentinel choices__sentinel--top';
+            this._topSentinel.style.height = '1px';
+            this._topSentinel.style.visibility = 'hidden';
+            this._topSentinel.setAttribute('aria-hidden', 'true');
+            // Create bottom sentinel (for appending next pages)
+            this._bottomSentinel = document.createElement('div');
+            this._bottomSentinel.className = 'choices__sentinel choices__sentinel--bottom';
+            this._bottomSentinel.style.height = '1px';
+            this._bottomSentinel.style.visibility = 'hidden';
+            this._bottomSentinel.setAttribute('aria-hidden', 'true');
+            // Set up IntersectionObserver
+            this._sentinelObserver = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting || !_this._remoteLoader || !_this.config.remote) {
+                        return;
+                    }
+                    var query = _this._remoteLoader.getCurrentQuery();
+                    var currentPage = _this._remoteLoader.getCurrentPage();
+                    var totalPages = _this._remoteLoader.getTotalPages();
+                    if (entry.target === _this._topSentinel && currentPage > 1) {
+                        // Load previous page
+                        _this._loadRemotePage(query, currentPage - 1, true);
+                    }
+                    else if (entry.target === _this._bottomSentinel && currentPage < totalPages) {
+                        // Load next page
+                        _this._loadRemotePage(query, currentPage + 1, true);
+                    }
+                });
+            }, { threshold: threshold });
+            // Observe sentinels
+            this._sentinelObserver.observe(this._topSentinel);
+            this._sentinelObserver.observe(this._bottomSentinel);
+            // Insert sentinels into the choice list
+            var choiceListEl = this.choiceList.element;
+            if (choiceListEl.firstChild) {
+                choiceListEl.insertBefore(this._topSentinel, choiceListEl.firstChild);
+            }
+            choiceListEl.appendChild(this._bottomSentinel);
+        };
+        /**
+         * Destroy sentinel elements and observer
+         */
+        Choices.prototype._destroySentinels = function () {
+            if (this._sentinelObserver) {
+                this._sentinelObserver.disconnect();
+                this._sentinelObserver = undefined;
+            }
+            if (this._topSentinel) {
+                this._topSentinel.remove();
+                this._topSentinel = undefined;
+            }
+            if (this._bottomSentinel) {
+                this._bottomSentinel.remove();
+                this._bottomSentinel = undefined;
+            }
+        };
+        /**
+         * Load a page from the remote API
+         */
+        Choices.prototype._loadRemotePage = function (query, page, immediate) {
+            var _this = this;
+            if (immediate === void 0) { immediate = false; }
+            if (!this._remoteLoader || !this.config.remote) {
+                return;
+            }
+            this._remoteLoader
+                .fetch(query, page, immediate)
+                .then(function (response) {
+                // Update page tracking
+                _this._remoteCurrentPage = response.page;
+                _this._remoteTotalPages = response.totalPages;
+                // Convert response items to choices
+                var choices = response.items.map(function (item) { return mapInputToChoice(item, false); });
+                // Determine if we're prepending or appending
+                var isPrepend = page < _this._remoteLoader.getCurrentPage();
+                // Add choices to the store
+                _this._store.withTxn(function () {
+                    choices.forEach(function (choice) {
+                        _this._addChoice(choice);
+                    });
+                });
+                // Re-render the choices
+                _this._renderChoices();
+                // Restore scroll position if prepending
+                if (isPrepend && _this.choiceList.element.firstChild) {
+                    var firstChoice = _this.choiceList.element.querySelector('[data-choice-selectable]');
+                    if (firstChoice) {
+                        firstChoice.scrollIntoView({ block: 'start' });
+                    }
+                }
+            })
+                .catch(function (error) {
+                if (!_this.config.silent) {
+                    console.error('Failed to load remote page:', error);
+                }
+            });
         };
         Choices.version = '11.1.0';
         return Choices;
