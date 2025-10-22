@@ -5,6 +5,7 @@ import { PositionOptionsType } from './position-options-type';
 import { Types } from './types';
 // eslint-disable-next-line import/no-cycle
 import { CallbackOnCreateTemplatesFn } from './templates';
+import { RemoteOptions } from './remote-options';
 
 export const ObjectsInConfig: string[] = ['fuseOptions', 'classNames'];
 
@@ -616,4 +617,15 @@ export interface Options {
   callbackOnCreateTemplates: CallbackOnCreateTemplatesFn | null;
 
   appendGroupInSearch: boolean;
+
+  /**
+   * Remote data loading configuration for fetching choices from a remote API.
+   * When enabled, supports debounced search, pagination with infinite scroll,
+   * abortable requests, and page caching.
+   *
+   * **Input types affected:** select-one, select-multiple
+   *
+   * @default false
+   */
+  remote: RemoteOptions | false;
 }

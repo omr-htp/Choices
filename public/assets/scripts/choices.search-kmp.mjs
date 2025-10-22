@@ -1001,6 +1001,7 @@ var DEFAULT_CONFIG = {
     callbackOnCreateTemplates: null,
     classNames: DEFAULT_CLASSNAMES,
     appendGroupInSearch: false,
+    remote: false,
 };
 
 var removeItem = function (item) {
