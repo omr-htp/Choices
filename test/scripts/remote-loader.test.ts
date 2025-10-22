@@ -90,6 +90,7 @@ describe('RemoteLoader', () => {
         json: async () => mockResponse,
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       loader.fetch('test1', 1, false);
       clock.tick(100);
 
@@ -164,6 +165,7 @@ describe('RemoteLoader', () => {
         json: async () => mockResponse,
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const promise1 = loader.fetch('test1', 1, true);
       const promise2 = loader.fetch('test2', 1, true);
 
@@ -365,6 +367,7 @@ describe('RemoteLoader', () => {
 
       const urlFunc = async () =>
         new Response(JSON.stringify(mockResponse), {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
           headers: { 'Content-Type': 'application/json' },
         });
 
@@ -419,6 +422,7 @@ describe('RemoteLoader', () => {
       abortError.name = 'AbortError';
       fetchStub.rejects(abortError);
 
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       loader.fetch('test', 1, true);
       // Should not throw
     });
@@ -507,6 +511,7 @@ describe('RemoteLoader', () => {
         }),
       );
 
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       loader.fetch('test', 1, true);
       loader.destroy();
 

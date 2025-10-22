@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+- Add native remote data loader with infinite scroll support
+  - Support for fetching paged results from remote APIs
+  - Debounced search with configurable delay
+  - Abortable requests using AbortController
+  - Bounded page caching with LRU eviction
+  - Two IntersectionObserver sentinels for bidirectional infinite scroll (prepend & append)
+  - Programmatic API: `clearRemoteCache()`, `refreshRemote()`, `gotoRemotePage()`, `getRemoteState()`
+  - Configurable options: `url`, `pageSize`, `initialPage`, `debounce`, `cachePages`, `autoLoadInitial`, `mapResponse`, `abortable`, `threshold`, `onError`
+  - Example page demonstrating remote data loading with mock API
+  - Comprehensive unit tests (24 tests) for RemoteLoader functionality
+
 ## [11.2.0]
 
 ### Features

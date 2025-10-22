@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>Choices - Remote Data Loader Example</title>
+    <meta
+      name="description"
+      itemprop="description"
+      content="A lightweight, configurable select box/text input plugin. Similar to Select2 and Selectize but without the jQuery dependency."
+    />
+    <link rel="shortcut icon" href="../../assets/images/favicon.ico" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <!-- Ignore these -->
+    <link rel="stylesheet" href="../../assets/styles/base.min.css" />
+    <!-- End ignore these -->
+
+    <!-- Choices includes -->
+    <link rel="stylesheet" href="../../assets/styles/choices.min.css" />
+    <script src="../../assets/scripts/choices.js"></script>
+    <!-- End Choices includes -->
+
+    <style>
+      .info-box {
+        background: #f0f0f0;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .code-block {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-family: monospace;
+        margin: 10px 0;
+        font-size: 14px;
+      }
+      .button-group {
+        margin: 15px 0;
+      }
+      .button-group button {
+        margin-right: 10px;
+        margin-bottom: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="section">
+        <h1>Remote Data Loader with Infinite Scroll</h1>
+        <p>
+          This example demonstrates the remote data loading feature with
+          infinite scroll support using top and bottom sentinels.
+        </p>
+
+        <div class="info-box">
+          <h3>Features:</h3>
+          <ul>
+            <li>✅ Debounced search (300ms)</li>
+            <li>✅ Abortable requests</li>
+            <li>✅ Page caching (up to 10 pages)</li>
+            <li>✅ Infinite scroll with prepend and append</li>
+            <li>✅ IntersectionObserver sentinels</li>
+            <li>✅ Programmatic API methods</li>
+          </ul>
+        </div>
+
+        <h2>Example: Function-based URL with Mock API</h2>
+        <div data-test-hook="remote-function">
+          <label for="choices-remote-function">Search Countries</label>
+          <select
+            class="form-control"
+            name="choices-remote-function"
+            id="choices-remote-function"
+          >
+            <option value="">Type to search...</option>
+          </select>
+
+          <div class="button-group">
+            <button class="btn-refresh" onclick="refreshRemote()">Refresh</button>
+            <button class="btn-clear-cache" onclick="clearCache()">Clear Cache</button>
+            <button class="btn-goto-page" onclick="gotoPage(2)">Go to Page 2</button>
+            <button class="btn-get-state" onclick="getState()">Get State</button>
+          </div>
+
+          <div id="state-output" class="info-box" style="display: none;">
+            <h4>Current State:</h4>
+            <pre id="state-content"></pre>
+          </div>
+
+          <script>
+            // Mock country data
+            const mockCountries = [
+              { value: 'us', label: 'United States' },
+              { value: 'uk', label: 'United Kingdom' },
+              { value: 'ca', label: 'Canada' },
+              { value: 'au', label: 'Australia' },
+              { value: 'de', label: 'Germany' },
+              { value: 'fr', label: 'France' },
+              { value: 'it', label: 'Italy' },
+              { value: 'es', label: 'Spain' },
+              { value: 'jp', label: 'Japan' },
+              { value: 'cn', label: 'China' },
+              { value: 'in', label: 'India' },
+              { value: 'br', label: 'Brazil' },
+              { value: 'mx', label: 'Mexico' },
+              { value: 'ar', label: 'Argentina' },
+              { value: 'za', label: 'South Africa' },
+              { value: 'eg', label: 'Egypt' },
+              { value: 'ng', label: 'Nigeria' },
+              { value: 'ke', label: 'Kenya' },
+              { value: 'ru', label: 'Russia' },
+              { value: 'pl', label: 'Poland' },
+              { value: 'nl', label: 'Netherlands' },
+              { value: 'be', label: 'Belgium' },
+              { value: 'se', label: 'Sweden' },
+              { value: 'no', label: 'Norway' },
+              { value: 'dk', label: 'Denmark' },
+              { value: 'fi', label: 'Finland' },
+              { value: 'ch', label: 'Switzerland' },
+              { value: 'at', label: 'Austria' },
+              { value: 'pt', label: 'Portugal' },
+              { value: 'gr', label: 'Greece' },
+              { value: 'tr', label: 'Turkey' },
+              { value: 'il', label: 'Israel' },
+              { value: 'sa', label: 'Saudi Arabia' },
+              { value: 'ae', label: 'UAE' },
+              { value: 'kr', label: 'South Korea' },
+              { value: 'th', label: 'Thailand' },
+              { value: 'vn', label: 'Vietnam' },
+              { value: 'id', label: 'Indonesia' },
+              { value: 'my', label: 'Malaysia' },
+              { value: 'sg', label: 'Singapore' },
+              { value: 'ph', label: 'Philippines' },
+              { value: 'nz', label: 'New Zealand' },
+              { value: 'cl', label: 'Chile' },
+              { value: 'co', label: 'Colombia' },
+              { value: 'pe', label: 'Peru' },
+              { value: 've', label: 'Venezuela' },
+              { value: 'uy', label: 'Uruguay' },
+              { value: 'py', label: 'Paraguay' },
+              { value: 'bo', label: 'Bolivia' },
+              { value: 'ec', label: 'Ecuador' },
+            ];
+
+            // Mock API function that simulates network delay
+            function mockFetchCountries(query, page, pageSize) {
+              return new Promise((resolve) => {
+                setTimeout(() => {
+                  // Filter countries by query
+                  const filtered = query
+                    ? mockCountries.filter((c) =>
+                        c.label.toLowerCase().includes(query.toLowerCase())
+                      )
+                    : mockCountries;
+
+                  // Calculate pagination
+                  const totalPages = Math.ceil(filtered.length / pageSize);
+                  const start = (page - 1) * pageSize;
+                  const end = start + pageSize;
+                  const items = filtered.slice(start, end);
+
+                  resolve({
+                    items,
+                    page,
+                    totalPages,
+                  });
+                }, 200); // Simulate 200ms network delay
+              });
+            }
+
+            let choicesRemote;
+            document.addEventListener('DOMContentLoaded', function () {
+              choicesRemote = new Choices('#choices-remote-function', {
+                allowHTML: false,
+                searchEnabled: true,
+                searchPlaceholderValue: 'Search countries...',
+                remote: {
+                  url: mockFetchCountries,
+                  pageSize: 10,
+                  initialPage: 1,
+                  debounce: 300,
+                  cachePages: 10,
+                  autoLoadInitial: true,
+                  mapResponse: (response) => response,
+                  abortable: true,
+                  threshold: 0.1,
+                  onError: (error) => {
+                    console.error('Remote loading error:', error);
+                    alert('Failed to load data: ' + error.message);
+                  },
+                },
+              });
+
+              // Add event listeners
+              choicesRemote.passedElement.element.addEventListener('search', (event) => {
+                console.log('Search event:', event.detail);
+              });
+            });
+
+            function refreshRemote() {
+              choicesRemote.refreshRemote();
+              console.log('Remote data refreshed');
+            }
+
+            function clearCache() {
+              choicesRemote.clearRemoteCache();
+              console.log('Cache cleared');
+            }
+
+            function gotoPage(page) {
+              choicesRemote.gotoRemotePage(page);
+              console.log('Going to page:', page);
+            }
+
+            function getState() {
+              const state = choicesRemote.getRemoteState();
+              document.getElementById('state-output').style.display = 'block';
+              document.getElementById('state-content').textContent = JSON.stringify(
+                state,
+                null,
+                2
+              );
+              console.log('Current state:', state);
+            }
+          </script>
+        </div>
+
+        <hr style="margin: 40px 0" />
+
+        <div class="info-box">
+          <h3>Configuration Options:</h3>
+          <div class="code-block">
+remote: {
+  // URL template or function
+  url: string | ((query, page, pageSize) => Promise<Response>),
+
+  // Number of items per page (default: 25)
+  pageSize: number,
+
+  // Initial page number (default: 1)
+  initialPage: number,
+
+  // Debounce delay in ms (default: 300)
+  debounce: number,
+
+  // Max pages to cache (default: 10)
+  cachePages: number,
+
+  // Auto-load initial data (default: true)
+  autoLoadInitial: boolean,
+
+  // Map server response to expected format
+  mapResponse: (response) => ({ items, page, totalPages }),
+
+  // Enable request cancellation (default: true)
+  abortable: boolean,
+
+  // IntersectionObserver threshold (default: 0.01)
+  threshold: number,
+
+  // Error callback
+  onError: (error) => void
+}
+          </div>
+
+          <h3>Programmatic API:</h3>
+          <div class="code-block">
+// Clear the cache
+instance.clearRemoteCache();
+
+// Refresh current query
+instance.refreshRemote();
+
+// Go to specific page
+instance.gotoRemotePage(pageNumber);
+
+// Get current state
+const state = instance.getRemoteState();
+// Returns: { query, currentPage, totalPages, cachedPages }
+          </div>
+        </div>
+
+        <hr style="margin: 40px 0" />
+
+        <div class="info-box">
+          <h3>How Infinite Scroll Works:</h3>
+          <ol>
+            <li>
+              <strong>Top Sentinel:</strong> When you scroll to the top of the dropdown, 
+              it loads the previous page and prepends the items.
+            </li>
+            <li>
+              <strong>Bottom Sentinel:</strong> When you scroll to the bottom, it loads 
+              the next page and appends the items.
+            </li>
+            <li>
+              <strong>Caching:</strong> Previously loaded pages are cached (up to the 
+              cachePages limit) to avoid redundant network requests.
+            </li>
+            <li>
+              <strong>Debouncing:</strong> Search queries are debounced to reduce 
+              unnecessary API calls while typing.
+            </li>
+            <li>
+              <strong>Abortable:</strong> When enabled, starting a new search cancels 
+              any pending requests.
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
