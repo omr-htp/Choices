@@ -37,6 +37,8 @@ import { getSearcher } from './search';
 // eslint-disable-next-line import/no-named-default
 import { default as defaultTemplates } from './templates';
 import { canUseDom } from './interfaces/build-flags';
+import RemoteLoader from './remote-loader';
+import { RemoteState } from './interfaces/remote-options';
 
 /** @see {@link http://browserhacks.com/#hack-acea075d0ac6954f275a70023906050c} */
 const IS_IE11 =
@@ -157,6 +159,18 @@ class Choices {
   };
 
   _docRoot: ShadowRoot | HTMLElement;
+
+  _remoteLoader?: RemoteLoader;
+
+  _topSentinel?: HTMLElement;
+
+  _bottomSentinel?: HTMLElement;
+
+  _sentinelObserver?: IntersectionObserver;
+
+  _remoteCurrentPage: number = 1;
+
+  _remoteTotalPages: number = 1;
 
   constructor(
     element: string | Element | HTMLInputElement | HTMLSelectElement = '[data-choice]',
@@ -336,6 +350,11 @@ class Choices {
     this._createElements();
     this._createStructure();
 
+    // Initialize remote loader if remote option is enabled
+    if (this.config.remote && this._isSelectElement) {
+      this._remoteLoader = new RemoteLoader(this.config.remote);
+    }
+
     if (
       (this._isTextElement && !this.config.addItems) ||
       this.passedElement.element.hasAttribute('disabled') ||
@@ -372,6 +391,13 @@ class Choices {
     this._store._listeners = []; // prevents select/input value being wiped
     this.clearStore(false);
     this._stopSearch();
+
+    // Cleanup remote loader
+    if (this._remoteLoader) {
+      this._remoteLoader.destroy();
+      this._remoteLoader = undefined;
+    }
+    this._destroySentinels();
 
     this._templates = Choices.defaults.templates;
     this.initialised = false;
@@ -520,6 +546,16 @@ class Choices {
         this.input.focus();
       }
 
+      // Create sentinels if remote mode is enabled
+      if (this._remoteLoader && this.config.remote) {
+        this._createSentinels();
+
+        // Auto-load initial data if enabled
+        if (this.config.remote.autoLoadInitial) {
+          this._loadRemotePage('', this.config.remote.initialPage, true);
+        }
+      }
+
       this.passedElement.triggerEvent(EventType.showDropdown);
     });
 
@@ -538,6 +574,11 @@ class Choices {
       if (!preventInputBlur && this._canSearch) {
         this.input.removeActiveDescendant();
         this.input.blur();
+      }
+
+      // Destroy sentinels when dropdown closes
+      if (this._remoteLoader) {
+        this._destroySentinels();
       }
 
       this.passedElement.triggerEvent(EventType.hideDropdown);
@@ -899,6 +940,82 @@ class Choices {
     this._stopSearch();
 
     return this;
+  }
+
+  /* ========================================
+   * Remote data loader methods
+   * ======================================== */
+
+  /**
+   * Clear the remote data cache
+   */
+  clearRemoteCache(): this {
+    this._warnChoicesInitFailed('clearRemoteCache');
+    if (!this._remoteLoader) {
+      if (!this.config.silent) {
+        console.warn('clearRemoteCache called but remote is not enabled');
+      }
+
+      return this;
+    }
+
+    this._remoteLoader.clearCache();
+
+    return this;
+  }
+
+  /**
+   * Refresh remote data for the current query
+   */
+  refreshRemote(): this {
+    this._warnChoicesInitFailed('refreshRemote');
+    if (!this._remoteLoader || !this.config.remote) {
+      if (!this.config.silent) {
+        console.warn('refreshRemote called but remote is not enabled');
+      }
+
+      return this;
+    }
+
+    const query = this._remoteLoader.getCurrentQuery();
+    this._loadRemotePage(query, this.config.remote.initialPage, true);
+
+    return this;
+  }
+
+  /**
+   * Load a specific page from the remote API
+   */
+  gotoRemotePage(pageNumber: number): this {
+    this._warnChoicesInitFailed('gotoRemotePage');
+    if (!this._remoteLoader || !this.config.remote) {
+      if (!this.config.silent) {
+        console.warn('gotoRemotePage called but remote is not enabled');
+      }
+
+      return this;
+    }
+
+    const query = this._remoteLoader.getCurrentQuery();
+    this._loadRemotePage(query, pageNumber, true);
+
+    return this;
+  }
+
+  /**
+   * Get the current state of the remote data loader
+   */
+  getRemoteState(): RemoteState | null {
+    this._warnChoicesInitFailed('getRemoteState');
+    if (!this._remoteLoader) {
+      if (!this.config.silent) {
+        console.warn('getRemoteState called but remote is not enabled');
+      }
+
+      return null;
+    }
+
+    return this._remoteLoader.getState();
   }
 
   _validateConfig(): void {
@@ -1379,13 +1496,34 @@ class Choices {
 
     // Check that we have a value to search and the input was an alphanumeric character
     if (value !== null && typeof value !== 'undefined' && value.length >= this.config.searchFloor) {
-      const resultCount = this.config.searchChoices ? this._searchChoices(value) : 0;
-      if (resultCount !== null) {
+      // If remote mode is enabled, trigger remote search instead of local search
+      if (this._remoteLoader && this.config.remote) {
+        // Clear existing choices for new search
+        this._store.withTxn(() => {
+          this._store.choices.forEach((choice) => {
+            if (!choice.selected) {
+              this._store.dispatch(removeChoice(choice));
+            }
+          });
+        });
+
+        // Load initial page for the new search query
+        this._loadRemotePage(value, this.config.remote.initialPage, false);
+
         // Trigger search event
         this.passedElement.triggerEvent(EventType.search, {
           value,
-          resultCount,
+          resultCount: 0,
         });
+      } else {
+        const resultCount = this.config.searchChoices ? this._searchChoices(value) : 0;
+        if (resultCount !== null) {
+          // Trigger search event
+          this.passedElement.triggerEvent(EventType.search, {
+            value,
+            resultCount,
+          });
+        }
       }
     } else if (this._store.choices.some((option) => !option.active)) {
       this._stopSearch();
@@ -2381,6 +2519,132 @@ class Choices {
     } else if (!this.initialisedOK) {
       throw new TypeError(`${caller} called for an element which has multiple instances of Choices initialised on it`);
     }
+  }
+
+  /**
+   * Create sentinel elements for infinite scroll
+   */
+  _createSentinels(): void {
+    if (!this._remoteLoader || !this.config.remote || this._topSentinel || this._bottomSentinel) {
+      return;
+    }
+
+    const { threshold } = this.config.remote;
+
+    // Create top sentinel (for prepending previous pages)
+    this._topSentinel = document.createElement('div');
+    this._topSentinel.className = 'choices__sentinel choices__sentinel--top';
+    this._topSentinel.style.height = '1px';
+    this._topSentinel.style.visibility = 'hidden';
+    this._topSentinel.setAttribute('aria-hidden', 'true');
+
+    // Create bottom sentinel (for appending next pages)
+    this._bottomSentinel = document.createElement('div');
+    this._bottomSentinel.className = 'choices__sentinel choices__sentinel--bottom';
+    this._bottomSentinel.style.height = '1px';
+    this._bottomSentinel.style.visibility = 'hidden';
+    this._bottomSentinel.setAttribute('aria-hidden', 'true');
+
+    // Set up IntersectionObserver
+    this._sentinelObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting || !this._remoteLoader || !this.config.remote) {
+            return;
+          }
+
+          const query = this._remoteLoader.getCurrentQuery();
+          const currentPage = this._remoteLoader.getCurrentPage();
+          const totalPages = this._remoteLoader.getTotalPages();
+
+          if (entry.target === this._topSentinel && currentPage > 1) {
+            // Load previous page
+            this._loadRemotePage(query, currentPage - 1, true);
+          } else if (entry.target === this._bottomSentinel && currentPage < totalPages) {
+            // Load next page
+            this._loadRemotePage(query, currentPage + 1, true);
+          }
+        });
+      },
+      { threshold },
+    );
+
+    // Observe sentinels
+    this._sentinelObserver.observe(this._topSentinel);
+    this._sentinelObserver.observe(this._bottomSentinel);
+
+    // Insert sentinels into the choice list
+    const choiceListEl = this.choiceList.element;
+    if (choiceListEl.firstChild) {
+      choiceListEl.insertBefore(this._topSentinel, choiceListEl.firstChild);
+    }
+    choiceListEl.appendChild(this._bottomSentinel);
+  }
+
+  /**
+   * Destroy sentinel elements and observer
+   */
+  _destroySentinels(): void {
+    if (this._sentinelObserver) {
+      this._sentinelObserver.disconnect();
+      this._sentinelObserver = undefined;
+    }
+
+    if (this._topSentinel) {
+      this._topSentinel.remove();
+      this._topSentinel = undefined;
+    }
+
+    if (this._bottomSentinel) {
+      this._bottomSentinel.remove();
+      this._bottomSentinel = undefined;
+    }
+  }
+
+  /**
+   * Load a page from the remote API
+   */
+  _loadRemotePage(query: string, page: number, immediate: boolean = false): void {
+    if (!this._remoteLoader || !this.config.remote) {
+      return;
+    }
+
+    this._remoteLoader
+      .fetch(query, page, immediate)
+      .then((response) => {
+        // Update page tracking
+        this._remoteCurrentPage = response.page;
+        this._remoteTotalPages = response.totalPages;
+
+        // Convert response items to choices
+        const choices = response.items.map((item) => mapInputToChoice(item, false));
+
+        // Determine if we're prepending or appending
+        const isPrepend = page < this._remoteLoader!.getCurrentPage();
+
+        // Add choices to the store
+        this._store.withTxn(() => {
+          choices.forEach((choice) => {
+            this._addChoice(choice);
+          });
+        });
+
+        // Re-render the choices
+        this._renderChoices();
+
+        // Restore scroll position if prepending
+        if (isPrepend && this.choiceList.element.firstChild) {
+          const firstChoice = this.choiceList.element.querySelector('[data-choice-selectable]') as HTMLElement;
+          if (firstChoice) {
+            firstChoice.scrollIntoView({ block: 'start' });
+          }
+        }
+      })
+      .catch((error) => {
+        if (!this.config.silent) {
+          console.error('Failed to load remote page:', error);
+        }
+      });
   }
 }
 

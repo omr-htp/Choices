@@ -10,6 +10,8 @@ import { EventChoiceValueType, PassedElementType } from './interfaces';
 import { EventChoice } from './interfaces/event-choice';
 import { NoticeType, Templates } from './interfaces/templates';
 import { Searcher } from './interfaces/search';
+import RemoteLoader from './remote-loader';
+import { RemoteState } from './interfaces/remote-options';
 /**
  * Choices
  * @author Josh Johnson<josh@joshuajohnson.co.uk>
@@ -62,6 +64,12 @@ declare class Choices {
         text: string;
     };
     _docRoot: ShadowRoot | HTMLElement;
+    _remoteLoader?: RemoteLoader;
+    _topSentinel?: HTMLElement;
+    _bottomSentinel?: HTMLElement;
+    _sentinelObserver?: IntersectionObserver;
+    _remoteCurrentPage: number;
+    _remoteTotalPages: number;
     constructor(element?: string | Element | HTMLInputElement | HTMLSelectElement, userConfig?: Partial<Options>);
     init(): void;
     destroy(): void;
@@ -148,6 +156,22 @@ declare class Choices {
     clearChoices(clearOptions?: boolean, clearItems?: boolean): this;
     clearStore(clearOptions?: boolean): this;
     clearInput(): this;
+    /**
+     * Clear the remote data cache
+     */
+    clearRemoteCache(): this;
+    /**
+     * Refresh remote data for the current query
+     */
+    refreshRemote(): this;
+    /**
+     * Load a specific page from the remote API
+     */
+    gotoRemotePage(pageNumber: number): this;
+    /**
+     * Get the current state of the remote data loader
+     */
+    getRemoteState(): RemoteState | null;
     _validateConfig(): void;
     _render(changes?: StateChangeSet): void;
     _renderChoices(): void;
@@ -213,5 +237,17 @@ declare class Choices {
     _findAndSelectChoiceByValue(value: string, userTriggered?: boolean): boolean;
     _generatePlaceholderValue(): string | null;
     _warnChoicesInitFailed(caller: string): void;
+    /**
+     * Create sentinel elements for infinite scroll
+     */
+    _createSentinels(): void;
+    /**
+     * Destroy sentinel elements and observer
+     */
+    _destroySentinels(): void;
+    /**
+     * Load a page from the remote API
+     */
+    _loadRemotePage(query: string, page: number, immediate?: boolean): void;
 }
 export default Choices;

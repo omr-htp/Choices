@@ -10,5 +10,6 @@ export * from './options';
 export * from './passed-element';
 export * from './passed-element-type';
 export * from './position-options-type';
+export * from './remote-options';
 export * from './state';
 export * from './types';
